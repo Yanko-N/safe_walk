@@ -121,9 +121,8 @@ class MainActivity : ComponentActivity() {
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // LOGO LOGO LOGO IMAGE, VERY PREETTY YES
             Image(
-                painter = painterResource(id = R.mipmap.ic_launcher),
+                painter = painterResource(id = R.drawable.logo_image),
                 contentDescription = "Logo SafeWalk",
                 modifier = Modifier
                     .size(120.dp)
