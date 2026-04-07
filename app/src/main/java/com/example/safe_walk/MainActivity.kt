@@ -3,8 +3,7 @@ package com.example.safe_walk
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.media.AudioManager
-import android.media.ToneGenerator
+import android.media.MediaPlayer
 import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -38,6 +37,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.google.mlkit.vision.objects.DetectedObject
+import kotlinx.coroutines.delay
 import java.util.concurrent.Executors
 
 class MainActivity : ComponentActivity() {
@@ -143,13 +143,32 @@ class MainActivity : ComponentActivity() {
         val previewView = remember { PreviewView(context) }
         var camera by remember { mutableStateOf<Camera?>(null) }
 
-        // beep generator
-        val toneGenerator = remember { ToneGenerator(AudioManager.STREAM_NOTIFICATION, 100) }
+        // MediaPlayer para o som personalizado
+        val player = remember {
+            try {
+                MediaPlayer.create(context, R.raw.beep)
+            } catch (e: Exception) {
+                null
+            }
+        }
 
-        // Quando encotnra objetos vai apitar
+        // Garante que o player é libertado quando a View é destruída
+        DisposableEffect(Unit) {
+            onDispose {
+                player?.release()
+            }
+        }
+
+        // Toca o som quando objetos são detetados
         LaunchedEffect(viewModel.detectedObjects.isNotEmpty()) {
-            if (viewModel.detectedObjects.isNotEmpty()) {
-                toneGenerator.startTone(ToneGenerator.TONE_PROP_BEEP, 150)
+            while (viewModel.detectedObjects.isNotEmpty()) {
+                player?.let {
+                    if (!it.isPlaying) {
+                        it.seekTo(0)
+                        it.start()
+                    }
+                }
+                delay(1000) // Intervalo de 1 segundo
             }
         }
 
@@ -185,7 +204,6 @@ class MainActivity : ComponentActivity() {
                                     onObjectsDetected = { objects -> viewModel.detectedObjects = objects },
                                     onImageSize = { w, h -> imageWidth = w; imageHeight = h },
                                     onBrightnessCalculated = { brightness ->
-                                        // Se o sensor de luz falhar (0), usamos o brilho da câmara
                                         if (viewModel.currentLux == 0f || !viewModel.hasLightSensor) {
                                             viewModel.updateLightLevel(brightness)
                                         }
@@ -274,7 +292,6 @@ class MainActivity : ComponentActivity() {
     @Composable
     fun UIOverlay(viewModel: SafeWalkViewModel) {
         Box(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-            // Indicador de lanterna
             if (viewModel.isLowLight) {
                 Badge(
                     containerColor = Color.Yellow,
@@ -299,7 +316,7 @@ class MainActivity : ComponentActivity() {
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = "Força G: ${"%.2f".format(viewModel.currentForce)} (Limite: 30.0)",
+                    text = "Força G: ${"%.2f".format(viewModel.currentForce)}",
                     color = Color.White,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold
